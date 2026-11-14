@@ -12,7 +12,9 @@ const selectCurso = document.getElementById('curso');
 const filtroCurso = document.getElementById('filtro-curso');
 const formCurso = document.getElementById('form-curso');
 const inputNovoCurso = document.getElementById('novo-curso');
-
+const formBusca = document.getElementById('form-busca');
+const inputBusca = document.getElementById('busca-aluno');
+let alunosCarregados = [];
 let modo = 'criar';
 let raEditando = '';
 
@@ -45,6 +47,7 @@ async function listarCursos() {
     preencherSelects(cursos);
   } catch (e) {
     mostrarMsg(e.message || 'Erro ao listar cursos', 'erro');
+    tabelaCursos.innerHTML = '<tr><td colspan="3" class="vazio">Não foi possível carregar os cursos.</td></tr>';
   }
 }
 
@@ -178,45 +181,58 @@ async function listarAlunos() {
   const url = cursoId ? `/cursos/${cursoId}/alunos` : '/alunos';
 
   try {
-    const alunos = await request(url);
-
-    if (!alunos.length) {
-      tabela.innerHTML = '<tr><td colspan="4" class="vazio">Nenhum aluno encontrado.</td></tr>';
-      return;
-    }
-
-    tabela.innerHTML = '';
-
-    for (const aluno of alunos) {
-      const tr = document.createElement('tr');
-
-      const tdNome = document.createElement('td');
-      tdNome.textContent = aluno.nome;
-
-      const tdRa = document.createElement('td');
-      tdRa.textContent = aluno.ra;
-
-      const tdCurso = document.createElement('td');
-      tdCurso.textContent = aluno.curso ? aluno.curso.nome : '—';
-
-      const tdAcoes = document.createElement('td');
-      const btnEditar = document.createElement('button');
-      btnEditar.textContent = 'Editar';
-      btnEditar.className = 'btn btn-pequeno';
-      btnEditar.onclick = () => abrirModalEditar(aluno);
-
-      const btnExcluir = document.createElement('button');
-      btnExcluir.textContent = 'Excluir';
-      btnExcluir.className = 'btn btn-pequeno btn-perigo';
-      btnExcluir.onclick = () => excluirAluno(aluno.ra, aluno.nome);
-
-      tdAcoes.append(btnEditar, btnExcluir);
-      tr.append(tdNome, tdRa, tdCurso, tdAcoes);
-      tabela.appendChild(tr);
-    }
+    alunosCarregados = await request(url);
+    renderizarAlunos();
   } catch (e) {
     mostrarMsg(e.message || 'Erro ao listar alunos', 'erro');
     tabela.innerHTML = '<tr><td colspan="4" class="vazio">Não foi possível carregar a lista.</td></tr>';
+  }
+}
+
+function renderizarAlunos() {
+  const termo = inputBusca.value.trim().toLocaleLowerCase();
+  const alunos = alunosCarregados.filter((aluno) => {
+    const nome = (aluno.nome || '').toLocaleLowerCase();
+    const ra = String(aluno.ra || '').toLocaleLowerCase();
+    return nome.includes(termo) || ra.includes(termo);
+  });
+
+  if (!alunos.length) {
+    const mensagem = alunosCarregados.length
+      ? 'Nenhum aluno corresponde à pesquisa.'
+      : 'Nenhum aluno encontrado.';
+    tabela.innerHTML = `<tr><td colspan="4" class="vazio">${mensagem}</td></tr>`;
+    return;
+  }
+
+  tabela.innerHTML = '';
+
+  for (const aluno of alunos) {
+    const tr = document.createElement('tr');
+
+    const tdNome = document.createElement('td');
+    tdNome.textContent = aluno.nome;
+
+    const tdRa = document.createElement('td');
+    tdRa.textContent = aluno.ra;
+
+    const tdCurso = document.createElement('td');
+    tdCurso.textContent = aluno.curso ? aluno.curso.nome : '—';
+
+    const tdAcoes = document.createElement('td');
+    const btnEditar = document.createElement('button');
+    btnEditar.textContent = 'Editar';
+    btnEditar.className = 'btn btn-pequeno';
+    btnEditar.onclick = () => abrirModalEditar(aluno);
+
+    const btnExcluir = document.createElement('button');
+    btnExcluir.textContent = 'Excluir';
+    btnExcluir.className = 'btn btn-pequeno btn-perigo';
+    btnExcluir.onclick = () => excluirAluno(aluno.ra, aluno.nome);
+
+    tdAcoes.append(btnEditar, btnExcluir);
+    tr.append(tdNome, tdRa, tdCurso, tdAcoes);
+    tabela.appendChild(tr);
   }
 }
 
@@ -279,6 +295,11 @@ document.getElementById('btn-cancelar').addEventListener('click', fecharModal);
 document.getElementById('modal-fundo').addEventListener('click', fecharModal);
 form.addEventListener('submit', salvarAluno);
 formCurso.addEventListener('submit', adicionarCurso);
+formBusca.addEventListener('submit', (evento) => {
+  evento.preventDefault();
+  renderizarAlunos();
+});
+inputBusca.addEventListener('input', renderizarAlunos);
 filtroCurso.addEventListener('change', listarAlunos);
 
 atualizarTudo();
